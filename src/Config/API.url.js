@@ -1,10 +1,6 @@
  
  
-//  const BASE_URL = "https://louder-world-backend.onrender.com"
-
-const BASE_URL = "http://localhost:5000"
-
-
+ const BASE_URL = "https://louder-world-backend.onrender.com"
 
  const API_URL = {
     GETEVENTS: (country , city) => `${BASE_URL}/server1/getEvents/${country}/${city}`,
