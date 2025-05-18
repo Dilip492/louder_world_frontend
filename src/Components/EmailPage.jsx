@@ -39,8 +39,8 @@ const EmailPage = () => {
             })
 
             const res = await response.json();
-            alert(res.message)
             if (response.status == 200) {
+                alert(res.message)
                 navigate("/OtpVerification")
             }
 

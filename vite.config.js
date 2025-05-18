@@ -7,6 +7,6 @@ export default defineConfig({
   plugins: [react(),
      tailwindcss(),
   ],
-  base:process.env.VITE_BASE_PATH || "/louder_world_frontend"
+  // base:process.env.VITE_BASE_PATH || "/louder_world_frontend"
 
 });

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useUser } from '../context/UserContext';
 import { useNavigate } from 'react-router';
@@ -8,15 +7,17 @@ const Otp = () => {
     const [otp, setOtp] = useState(new Array(6).fill(''));
     const [timer, setTimer] = useState(30);
     const [canResend, setCanResend] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isResending, setIsResending] = useState(false);
     const { link, email } = useUser();
     const inputRefs = useRef([]);
-
     const navigate = useNavigate();
 
+    // Timer countdown
     useEffect(() => {
         let countdown;
         if (timer > 0) {
-            countdown = setTimeout(() => setTimer((prev) => prev - 1), 1000);
+            countdown = setTimeout(() => setTimer(prev => prev - 1), 1000);
         } else {
             setCanResend(true);
         }
@@ -31,8 +32,14 @@ const Otp = () => {
         newOtp[index] = value.slice(-1); // Only one digit
         setOtp(newOtp);
 
+        // Auto-focus next input
         if (value && index < 5) {
             inputRefs.current[index + 1]?.focus();
+        }
+        
+        // Auto-submit when last digit is entered
+        if (value && index === 5) {
+            handleSubmit();
         }
     };
 
@@ -42,116 +49,132 @@ const Otp = () => {
         }
     };
 
- 
-
-    console.log(otp)
-
     const handleSubmit = async () => {
         const enteredOtp = otp.join('');
-        console.log(enteredOtp)
+        
+        // if (enteredOtp.length !== 6) {
+        //     alert('Please enter a complete 6-digit OTP');
+        //     return;
+        // }
 
-       
-
+        setIsSubmitting(true);
+        
         try {
             const response = await fetch(API_URL.VERIFYOTP, {
                 method: "POST",
                 headers: {
-                    "content-type": "application/json"
+                    "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ "email": email, "otp": enteredOtp })
-            })
-            setOtp();
+                body: JSON.stringify({ email, otp: enteredOtp })
+            });
+
             const res = await response.json();
-            if (response.status == 200) {
+            
+            if (response.ok) {
                 alert(res.message);
-                window.open(`${link}`)
-                navigate("/")
-                
+                window.open(link, '_blank');
+                navigate("/");
+            } else {
+                throw new Error(res.message || 'OTP verification failed');
             }
         } catch (error) {
-            console.log("error verify otp", error);
+            console.error("Error verifying OTP:", error);
             alert(error.message);
+        } finally {
+            setIsSubmitting(false);
         }
-
-
     };
 
-    
     const handleResend = async () => {
+        if (!canResend) return;
+        
+        setIsResending(true);
         setOtp(new Array(6).fill(''));
         setTimer(30);
         setCanResend(false);
 
-        const response = await fetch(API_URL.SENDOTP, {
-            method: 'POST',
-            headers: {
-                "content-type": "application/json"
-            },
-            body: JSON.stringify({ "email": email })
+        try {
+            const response = await fetch(API_URL.SENDOTP, {
+                method: 'POST',
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ email })
+            });
 
-        })
-
-        const res = await response.json();
-        if (response.status == 200) {
-            alert("otp resent")
+            const res = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(res.message || 'Failed to resend OTP');
+            }
+            
+            alert("OTP has been resent");
+            inputRefs.current[0]?.focus();
+        } catch (error) {
+            console.error("Error resending OTP:", error);
+            alert(error.message);
+            setCanResend(true);
+        } finally {
+            setIsResending(false);
         }
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 px-4">
-            <h2 className="text-2xl font-semibold mb-4">Verify OTP</h2>
-            <p className="text-gray-500 text-sm mb-4 font-semibold text-center">
-                We have sent an OTP to your email address. Please check your inbox and enter the OTP securely.
-            </p>
-            <div className="flex gap-2 mb-6">
-                {otp.map((digit, index) => (
-                    <input
-                        key={index}
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={digit}
-                        ref={(el) => (inputRefs.current[index] = el)}
-                        onChange={(e) => handleChange(e, index)}
-                        onKeyDown={(e) => handleKeyDown(e, index)}
-                        className="w-12 h-12 text-center border border-gray-400 rounded-md text-xl focus:outline-none focus:border-blue-500"
-                        style={{
-                            MozAppearance: 'textfield',
-                            WebkitAppearance: 'none',
-                            appearance: 'none'
-                        }}
-                    />
-                ))}
-            </div>
-            <button
-                onClick={handleSubmit}
-                className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition"
-            >
-                Submit
-            </button>
-
-            <div className="text-sm text-gray-600 mt-2">
-                {!canResend ? (
-                    <p>
-                        Didn’t receive the code?{' '}
-                        <span className="font-medium text-gray-800">
-                            Resend in {timer}s
-                        </span>
-                    </p>
-                ) : (
-                    <p>
-                        Didn’t receive the code?{' '}
+        <div className="flex flex-col items-center justify-center min-h-screen bg-white px-4">
+            <div className=" bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+                <h2 className="text-2xl font-semibold mb-4 text-center">Verify OTP</h2>
+                <p className="text-gray-600 mb-6 text-center">
+                    We've sent a 6-digit code to <span className="font-medium">{email}</span>
+                </p>
+                
+                <div className="flex justify-center gap-3 mb-8">
+                    {otp.map((digit, index) => (
+                        <input
+                            key={index}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={digit}
+                            ref={(el) => (inputRefs.current[index] = el)}
+                            onChange={(e) => handleChange(e, index)}
+                            onKeyDown={(e) => handleKeyDown(e, index)}
+                            className="w-12 h-12 text-center border-2 border-gray-300 rounded-md text-xl focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition"
+                            disabled={isSubmitting}
+                        />
+                    ))}
+                </div>
+                
+                <button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting || otp.join('').length !== 6}
+                    className={`w-full py-3 px-4 rounded-md font-medium transition ${
+                        isSubmitting || otp.join('').length !== 6
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
+                >
+                    {isSubmitting ? 'Verifying...' : 'Verify'}
+                </button>
+                
+                <div className="text-center mt-6 text-sm text-gray-600">
+                    {!canResend ? (
+                        <p>
+                            Didn't receive the code? Resend in{' '}
+                            <span className="font-medium">{timer}s</span>
+                        </p>
+                    ) : (
                         <button
                             onClick={handleResend}
-                            className="text-blue-600 hover:underline font-medium"
+                            disabled={isResending}
+                            className={`text-blue-600 font-medium ${
+                                isResending ? 'opacity-50' : 'hover:underline'
+                            }`}
                         >
-                            Resend OTP
+                            {isResending ? 'Sending...' : 'Resend OTP'}
                         </button>
-                    </p>
-                )}
+                    )}
+                </div>
             </div>
-
-
         </div>
     );
 };
