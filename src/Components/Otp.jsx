@@ -74,9 +74,7 @@ const Otp = () => {
                 alert(res.message);
                 window.open(link, '_blank');
                 navigate("/");
-            } else {
-                throw new Error(res.message || 'OTP verification failed');
-            }
+            } 
         } catch (error) {
             console.error("Error verifying OTP:", error);
             alert(error.message);
